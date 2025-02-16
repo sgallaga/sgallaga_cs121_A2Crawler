@@ -2,22 +2,27 @@ import re
 from urllib.parse import urlparse, urljoin
 from bs4 import BeautifulSoup
 
+def remove_fragment(url):
+    # Removes fragment from url
+    parsed = urlparse(url)
+    return parsed._replace(fragment="").geturl()
+
 def log_error(message):
     # Logs any encountered errors to error_log.text
     with open(LOG_FILE, "a") as f:
         f.write(message + "\n")
 
-def is_low_info():
+def is_low_info(soup):
     # Returns True if page is a low info page
     text = soup.get_text(separator=' ')
     total_words = text.split()
 
     # Installed heuristics to determine if low-info or not
-    if len(words) < 50: # Too short
+    if len(total_words) < 50: # Too short
         return True
 
     links = len(soup.find_all('a'))
-    if links > 100 and len(words) / links < 2: # Evaluate word to link ratio
+    if links > 100 and len(total_words) / links < 2: # Evaluate word to link ratio
         return True
     
     return False
@@ -25,6 +30,12 @@ def is_low_info():
 def scraper(url, resp):
     #links = extract_next_links(url, resp)
     #return [link for link in links if is_valid(link)]
+
+    # Detect redirects and properly handle redirected content
+    if resp.status in {301, 302, 307, 308} and resp.raw_response:
+        redir_url = resp.raw_response.url
+        print(f"Redirect detected: {url} -> {redir_url}")
+        url = redir_url
     
     # Check return status to be 200 (ok) and for a valid .raw_response
     if resp.status != 200 or not resp.raw_response:
@@ -43,7 +54,7 @@ def scraper(url, resp):
     links = [urljoin(url, a['href']) for a in soup.find_all('a', href=True)]
 
     # Filter for is_valid(link)
-    val_links = [link for link in links if is_valid(link)]
+    val_links = [remove_fragment(link) for link in links if is_valid(link)]
 
     print(f"Extracted {len(val_links)} valid links from {url}") # Debugging
     return val_links
@@ -69,9 +80,9 @@ def is_valid(url):
         if parsed.scheme not in set(["http", "https"]):
             return False
 
-        # Filter for only specificed domains
+        # Filter for only specificed domains and their subdomains
         good_domains = {"ics.uci.edu", "cs.uci.edu", "informatics.uci.edu", "stat.uci.edu"}
-        if parsed.netloc not in good_domains:
+        if not any (parsed.netloc.endswith("." + domain) or parsed.netloc == domain for domain in good_domains):
             return False
 
         if re.match(

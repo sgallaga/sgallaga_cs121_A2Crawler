@@ -2,6 +2,31 @@ import re
 from urllib.parse import urlparse, urljoin
 from bs4 import BeautifulSoup
 
+UNIQUE_FILES = "unique_urls.txt"
+FlUSH_THRESH = 100 # Threshold for amount of URLS allowed in cache before flush
+recent_urls = set() # Cache for recent URLs
+unique_counter = 0 # Counter to keep track of cache size
+
+def load_unique_urls():
+    # Loads unique URLs from disk into a set
+    if os.path.exists(UNIQUE_FILES):
+        with open(UNIQUE_FILES, "r") as f:
+            return set(line.strip() for line in f)
+    return set()
+
+def save_unique_url(url):
+    # Saves given url into the recent_urls cache which also flushes periodically
+    # URLs to be saved must be unique to 
+    global unique_counter
+    recent_urls.add(url)
+    unique_counter += 1
+
+    if unique_counter >= FLUSH_THRESH:
+        flush_recent_urls()
+
+#def flush_recent_urls():
+    # Writes recent_urls in
+
 def remove_fragment(url):
     # Removes fragment from url
     parsed = urlparse(url)
@@ -50,7 +75,7 @@ def scraper(url, resp):
     if is_low_info(soup):
         return []
     
-    # Extract all links from the page
+    # Extract all links from the page WHILE transforming all relative links into ABSOLUTE links
     links = [urljoin(url, a['href']) for a in soup.find_all('a', href=True)]
 
     # Filter for is_valid(link)
@@ -85,7 +110,7 @@ def is_valid(url):
         if not any (parsed.netloc.endswith("." + domain) or parsed.netloc == domain for domain in good_domains):
             return False
 
-        if re.match(
+        if re.match(                            
             r".*\.(css|js|bmp|gif|jpe?g|ico"
             + r"|png|tiff?|mid|mp2|mp3|mp4"
             + r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"

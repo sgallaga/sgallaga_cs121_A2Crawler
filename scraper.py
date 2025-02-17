@@ -26,6 +26,7 @@ def save_unique_url(url):
 
 #def flush_recent_urls():
     # Writes recent_urls in
+    #Test
 
 def remove_fragment(url):
     # Removes fragment from url

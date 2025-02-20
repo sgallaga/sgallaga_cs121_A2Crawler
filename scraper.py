@@ -8,6 +8,8 @@ from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
 
 ERR_FILE = "error_log.txt"
 UNIQUE_FILES = "unique_urls.txt"
+COMMON_WORDS = "common_words.txt"
+SUBDOMAINS = "subdomains.txt"
 simhashes = set() # Store Simhashes
 
 word_counter = Counter()
@@ -40,6 +42,16 @@ def log_error(message):
     with open(ERR_FILE, "a") as f:
         f.write(message + "\n")
 
+def save_common_words():
+    with open(COMMON_WORDS, "w") as f:
+        for word, freq in word_counter.most_common(50):
+            f.write(f"{word}: {freq}\n")
+
+def save_subdomains():
+    with open(SUBDOMAINS, "w") as f:
+        for subdomain, count in sorted(subdomain_counter.items()):
+            f.write(f"{subdomain}, {count}\n")
+
 def extract_text(soup):
     text = soup.get_text(" ")
     # Keep apostrophes, pass by short words
@@ -47,12 +59,14 @@ def extract_text(soup):
     filtered_words = [word for word in words if word not in STOPWORDS and not word.isdigit()]
     # Update global counter for Q3
     word_counter.update(filtered_words)
+    save_common_words()
 
 def count_subdomain(url):
-    parsed = urlparse(url)
     # Increment global counter for Q4
+    parsed = urlparse(url)
     if "ics.uci.edu" in parsed.netloc:
         subdomain_counter[parsed.netloc] += 1
+        save_subdomains()
 
 def is_low_info(soup):
     # Returns True if page is a low info page

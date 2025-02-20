@@ -4,12 +4,19 @@ from urllib.parse import urlparse, urljoin
 from bs4 import BeautifulSoup
 import os
 from simhash import Simhash
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
 
 ERR_FILE = "error_log.txt"
 UNIQUE_FILE = "unique_urls.txt"             # Stores unique urls
 LONGEST_FILE = "longest_page.txt"           # Stores longest page
 longest_page = {"url": "", "word_count": 0} # Dict to keep track of longest_page
+COMMON_WORDS = "common_words.txt"
+SUBDOMAINS = "subdomains.txt"
 simhashes = set() # Store Simhashes
+
+word_counter = Counter()
+subdomain_counter = defaultdict(int)
+STOPWORDS = set(ENGLISH_STOP_WORDS)
 
 def update_longest(url, text):
     # Updates longest_page based on word count then saves to disk
@@ -51,6 +58,32 @@ def log_error(message):
     # Logs any encountered errors to error_log.text
     with open(ERR_FILE, "a") as f:
         f.write(message + "\n")
+
+def save_common_words():
+    with open(COMMON_WORDS, "w") as f:
+        for word, freq in word_counter.most_common(50):
+            f.write(f"{word}: {freq}\n")
+
+def save_subdomains():
+    with open(SUBDOMAINS, "w") as f:
+        for subdomain, count in sorted(subdomain_counter.items()):
+            f.write(f"{subdomain}, {count}\n")
+
+def extract_text(soup):
+    text = soup.get_text(" ")
+    # Keep apostrophes, pass by short words
+    words = re.findall(r"\b[a-zA-Z][a-zA-Z']{2,}\b", text.lower())
+    filtered_words = [word for word in words if word not in STOPWORDS and not word.isdigit()]
+    # Update global counter for Q3
+    word_counter.update(filtered_words)
+    save_common_words()
+
+def count_subdomain(url):
+    # Increment global counter for Q4
+    parsed = urlparse(url)
+    if "ics.uci.edu" in parsed.netloc:
+        subdomain_counter[parsed.netloc] += 1
+        save_subdomains()
 
 def is_low_info(soup):
     # Returns True if page is a low info page
@@ -107,13 +140,10 @@ def scraper(url, resp):
     count_subdomain(url)    # Process subdomain for Q4
     
     # Extract all links from the page WHILE transforming all relative links into ABSOLUTE links
-    links = [urljoin(url, a['href']) for a in soup.find_all('a', href=True)]
+    links = extract_next_links(url, resp)
 
-    # Filter for is_valid(link, text) text must be included for SimHash
-    val_links = [remove_fragment(link) for link in links if is_valid(link, html_con)]
-
-    print(f"Extracted {len(val_links)} valid links from {url}") # Debugging
-    return val_links
+    print(f"Extracted {len(links)} valid links from {url}") # Debugging
+    return links
 
 
 def extract_next_links(url, resp):
@@ -126,7 +156,14 @@ def extract_next_links(url, resp):
     #         resp.raw_response.url: the url, again
     #         resp.raw_response.content: the content of the page!
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
-    return list()
+    if resp.status != 200 or not resp.raw_response:
+        return []
+    
+    html_con = resp.raw_response.content
+    soup = BeautifulSoup(html_con, "html.parser")
+    
+    links = [urljoin(url, a['href']) for a in soup.find_all('a', href=True)]
+    return [remove_fragment(link) for link in links if is_valid(link, html_con)]
 
 def is_valid(url):
     # Decide whether to crawl this url or not. 

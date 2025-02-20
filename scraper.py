@@ -6,22 +6,38 @@ import os
 from simhash import Simhash
 
 ERR_FILE = "error_log.txt"
-UNIQUE_FILES = "unique_urls.txt"
+UNIQUE_FILE = "unique_urls.txt"             # Stores unique urls
+LONGEST_FILE = "longest_page.txt"           # Stores longest page
+longest_page = {"url": "", "word_count": 0} # Dict to keep track of longest_page
 simhashes = set() # Store Simhashes
 
+def update_longest(url, text):
+    # Updates longest_page based on word count then saves to disk
+    global longest_page
+    word_count = len(re.findall(r"\w+", text))
+    if word_count > longest_page["word_count"]:
+        longest_page = {"url": url, "word_count": word_count}
+        with open(LONGEST_FILE, "w") as f:
+            f.write(f"Longest Page URL: {url}\nWordCount: {word_count}\n")
+        print(f"Updated longest page: {url} ({word_count} words)")
+
+def compute_simhash(text):
+    # Computes the Simhash of the given text
+    return Simhash(text).value
 
 def load_unique_urls():
     # Loads unique URLs from disk into a set
-    if os.path.exists(UNIQUE_FILES):
-        with open(UNIQUE_FILES, "r") as f:
+    if os.path.exists(UNIQUE_FILE):
+        with open(UNIQUE_FILE, "r") as f:
             return set(line.strip() for line in f)
     return set()
 
 def save_unique_url(url):
     # URLs to be saved must be unique 
+    url = remove_fragment(url)
     if url not in unique_urls:
         unique_urls.add(url)
-        with open(UNIQUE_FILES, "a") as f:
+        with open(UNIQUE_FILE, "a") as f:
             f.write(url + "\n")
 
 unique_urls = load_unique_urls() # Cache for recent URLs loaded in from disk
@@ -67,9 +83,6 @@ def scraper(url, resp):
         print(f"Skipping {url} due to bad response: {resp.status}") # Debugging
         return []
 
-    url = remove_fragment(url)
-    save_unique_url(url)
-
     # Extract text content from resp.raw_response.content using Beautiful soup
     html_con = resp.raw_response.content
     soup = BeautifulSoup(html_con, "html.parser")
@@ -78,8 +91,20 @@ def scraper(url, resp):
     if is_low_info(soup):
         return []
 
-    extract_text(soup)  # Process text for Q3
-    count_subdomain(url)  # Process subdomain for Q4
+    # Detect if page is valid using SimHash
+    current_simhash = compute_simhash(html_con)
+    for known_simhash in simhashes:
+        if hamming_distance(current_simhash, known_simhash) < 5:
+            return []
+
+    simhashes.add(current_simhash)
+
+    # Gather necessary data from valid page
+
+    save_unique_url(url)    # Process text for Q1
+    update_longest(url, html_con) # Process text for Q2
+    extract_text(soup)      # Process text for Q3
+    count_subdomain(url)    # Process subdomain for Q4
     
     # Extract all links from the page WHILE transforming all relative links into ABSOLUTE links
     links = [urljoin(url, a['href']) for a in soup.find_all('a', href=True)]
@@ -103,7 +128,7 @@ def extract_next_links(url, resp):
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
     return list()
 
-def is_valid(url, text=None):
+def is_valid(url):
     # Decide whether to crawl this url or not. 
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
@@ -135,14 +160,6 @@ def is_valid(url, text=None):
             print(f"Blocked {url} (Invalid file type matched)") # Debugging
             return False
         
-        # Compute SimHash for content
-        if text:
-            current_simhash = compute_simhash(text)
-            for known_simhash in simhashes:
-                if hamming_distance(current_simhash, known_simhash) < 5:
-                    return False
-        
-            simhashes.add(current_simhash)
 
         return True
         

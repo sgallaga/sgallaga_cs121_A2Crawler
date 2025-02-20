@@ -10,6 +10,20 @@ UNIQUE_FILES = "unique_urls.txt"
 simhashes = set() # Store Simhashes
 
 
+def load_unique_urls():
+    # Loads unique URLs from disk into a set
+    if os.path.exists(UNIQUE_FILES):
+        with open(UNIQUE_FILES, "r") as f:
+            return set(line.strip() for line in f)
+    return set()
+
+def save_unique_url(url):
+    # URLs to be saved must be unique 
+    if url not in unique_urls:
+        unique_urls.add(url)
+        with open(UNIQUE_FILES, "a") as f:
+            f.write(url + "\n")
+
 unique_urls = load_unique_urls() # Cache for recent URLs loaded in from disk
 
 def remove_fragment(url):

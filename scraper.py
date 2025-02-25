@@ -1,3 +1,15 @@
+# CS 121 - Assignment 2
+# Group 56
+# Santiago Gallaga, Kyle Jung
+
+# scraper.py
+# Our modified crawler generates a report that is split across 4 text files.
+
+# Q1: unique_urls.txt
+# Q2: longest_page.txt
+# Q3: common_words.txt
+# Q4: subdomains.txt
+
 import re
 from collections import Counter, defaultdict, deque
 from urllib.parse import urlparse, urljoin

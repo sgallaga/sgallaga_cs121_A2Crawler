@@ -10,8 +10,8 @@ from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
 UNIQUE_FILE = "unique_urls.txt"             # Stores unique urls
 LONGEST_FILE = "longest_page.txt"           # Stores longest page
 longest_page = {"url": "", "word_count": 0} # Dict to keep track of longest_page
-COMMON_WORDS = "common_words.txt"
-SUBDOMAINS = "subdomains.txt"
+COMMON_WORDS = "common_words.txt"           # Stores common words
+SUBDOMAINS = "subdomains.txt"               # Stores subdomains
 RECENT_URLS_LIMIT = 1000                    # Size of window for recently viewed URLs
 
 simhashes = set() # Store Simhashes
@@ -93,11 +93,13 @@ def remove_fragment(url):
 
 
 def save_common_words():
+    # Write into common_words.txt
     with open(COMMON_WORDS, "w") as f:
         for word, freq in word_counter.most_common(50):
             f.write(f"{word}: {freq}\n")
 
 def save_subdomains():
+    # Write into subdomainds.txt
     with open(SUBDOMAINS, "w") as f:
         for subdomain, count in sorted(subdomain_counter.items()):
             f.write(f"{subdomain}, {count}\n")

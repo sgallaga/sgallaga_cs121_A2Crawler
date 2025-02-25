@@ -1,4 +1,5 @@
 cbor
 requests
-nltk
 simhash
+sklearn
+bs4

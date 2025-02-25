@@ -1,5 +1,5 @@
 import re
-from collections import Counter, defaultdict
+from collections import Counter, defaultdict, deque
 from urllib.parse import urlparse, urljoin
 from bs4 import BeautifulSoup
 import os
@@ -48,7 +48,7 @@ def update_longest(url, text):
 def is_duplicate_page(text):
     # Returns True if page is a near duplicate of any other simhashes
     global simhashes
-    current_simhash = compute_simhash(html_con)
+    current_simhash = compute_simhash(text)
     for known_simhash in simhashes:
         if hamming_distance(current_simhash, known_simhash) < 5:
             return True
@@ -61,6 +61,9 @@ def hamming_distance(hash1, hash2):
 
 def compute_simhash(text):
     # Computes the Simhash of the given text
+    if isinstance(text, bytes):
+        text = text.decode('utf-8', errors='ignore')
+
     words = re.findall(r'\w+', text.lower())
     return Simhash(words).value
 
@@ -154,16 +157,15 @@ def scraper(url, resp):
     # Extract text content from resp.raw_response.content using Beautiful soup
     html_con = resp.raw_response.content
     soup = BeautifulSoup(html_con, "html.parser")
-    
-    if isinstance(html_con, bytes):              # If site returns bytes instead of text
-        return []
 
     # Detect if page is low information
     if is_low_info(soup):
+        print(f"Skipping page: {url} low information")
         return []
 
     # Detect if page is valid using SimHash
     if is_duplicate_page(html_con):
+        print(f"Skipping page: {url} is_duplicate")
         return []
 
     # Gather necessary data from valid page
@@ -198,6 +200,7 @@ def is_valid(url):
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
     try:
+        print(url)
         parsed = urlparse(url)
         parsed = parsed._replace(fragment="") # Remove fragment
 
@@ -234,9 +237,10 @@ def is_valid(url):
         
 
     except Exception as e:
+        print(f"Exception when attempting to validate file {url}")
         return False
 
 def finalize_report():
     with open(UNIQUE_FILE, "a") as f:
-        f.write(f"Unique Word Count: {unique_counter}\n")
+        f.write(f"Unique URL Count: {unique_counter}\n")
 

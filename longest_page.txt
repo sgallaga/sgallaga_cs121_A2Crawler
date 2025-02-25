@@ -1,0 +1,2 @@
+Longest Page URL: http://www.ics.uci.edu/~kay/wordlist.txt
+WordCount: 475850
